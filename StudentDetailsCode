@@ -1,0 +1,129 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+
+namespace Elearning
+{
+    public partial class StudentDetails : System.Web.UI.Page
+    {
+        DatabaseConnection databaseConnection = new DatabaseConnection();
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            GetStudentDetails();
+        }
+
+        private void GetStudentDetails()
+        {
+            string userid = Session["UserID"].ToString();
+            if (!string.IsNullOrEmpty(userid))
+            {
+                string query = "SELECT * FROM Users WHERE UserID = " + Session["UserId"] + "";
+                var result = databaseConnection.executeReader(query);
+
+                if (result.Rows.Count == 1)
+                {
+                    string emailaddres = result.Rows[0]["EmailAddress"].ToString();
+                    string roleid = result.Rows[0]["RoleID"].ToString();
+                    string courseid = result.Rows[0]["CourseID"].ToString();
+
+                    Session["EmailAddress"] = emailaddres;
+                    txtCourse.Text = GetCourseName(Convert.ToInt32(courseid));
+                    BindModulesByCourseID(Convert.ToInt32(courseid));
+                    BindTutorsData(Convert.ToInt32(courseid), Convert.ToInt32(roleid));
+                }
+            }
+        }
+
+        protected void btnShowEmail_Click(object sender, EventArgs e)
+        {
+            lblEmail.Text = string.IsNullOrEmpty(Session["EmailAddress"].ToString()) ? string.Empty : Session["EmailAddress"].ToString();
+        }
+
+        private string GetCourseName(int courseid)
+        {
+            string query = "SELECT * FROM Courses WHERE CourseID = " + courseid + "";
+            var result = databaseConnection.executeReader(query);
+            if (result.Rows.Count == 1)
+            {
+                string coursename = result.Rows[0]["CourseName"].ToString();
+                return coursename;
+            }
+            else
+                return null;
+        }
+
+        private string GetRoleName(int roleid)
+        {
+            string query = "SELECT * FROM UserRoles WHERE RoleID = " + roleid + "";
+            var result = databaseConnection.executeReader(query);
+            if (result.Rows.Count == 1)
+            {
+                string rolename = result.Rows[0]["RoleName"].ToString();
+                return rolename;
+            }
+            else
+                return null;
+        }
+
+        private void BindModulesByCourseID(int courseid)
+        {
+            string coursemodulequery = "SELECT * FROM CourseModules WHERE CourseID = " + courseid + "";
+            List<string> moduleidarray = new List<string>();
+            var coursemoduleresult = databaseConnection.executeReader(coursemodulequery);
+            if (coursemoduleresult.Rows.Count > 0)
+            {
+                for (int i = 0; i < coursemoduleresult.Rows.Count; i++)
+                {
+                    string moduleid = coursemoduleresult.Rows[i]["ModuleID"].ToString();
+                    moduleidarray.Add(moduleid);
+                }
+            }
+
+            DataTable dt = new DataTable();
+            dt.Columns.Add("ModuleCode");
+            dt.Columns.Add("ModuleName");
+            var moduledistinct = moduleidarray.Distinct();
+            if (moduleidarray.Any())
+            {
+                for (int i = 0; i < moduledistinct.Count(); i++)
+                {
+                    string modulequery = "SELECT ModuleCode, ModuleName FROM Modules WHERE ModuleID = " + moduleidarray[i] + "";
+                    var moduleresult = databaseConnection.fillDataTable(modulequery);
+                    if (moduleresult.Rows.Count > 0)
+                    {
+                        foreach (DataRow item in moduleresult.Rows)
+                        {
+                            dt.Rows.Add(item.ItemArray);
+                        }
+                    }
+                }
+            }
+            rptModules.DataSource = dt;
+            rptModules.DataBind();
+        }
+
+        private void BindTutorsData(int courseid, int roleid)
+        {
+            List<string> tutorlist = new List<string>();
+            string tutorsquery = "SELECT UserName FROM Users WHERE CourseID = " + courseid + " AND RoleID = " + 2 + "";
+            var tutorsresult = databaseConnection.executeReader(tutorsquery);
+
+            if (tutorsresult.Rows.Count > 0)
+            {
+                foreach (DataRow item in tutorsresult.Rows)
+                {
+                    tutorlist.Add(item.ItemArray[0].ToString());
+                }
+
+                lstTutors.DataSource = tutorlist;
+                lstTutors.DataBind();
+            }
+
+        }
+    }
+}
